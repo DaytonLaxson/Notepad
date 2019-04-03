@@ -7,18 +7,30 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import javafx.application.Application;
 import static javafx.application.Application.launch;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogPane;
+import javafx.scene.control.ListView;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
 import javafx.scene.effect.DropShadow;
@@ -28,8 +40,11 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
@@ -48,6 +63,17 @@ public class Notepad extends Application {
     Clipboard clipboard = Clipboard.getSystemClipboard();
     ClipboardContent content = new ClipboardContent();
     BorderPane root = new BorderPane();
+    Font oldFont;
+    ListView<String> lV_font_styles;
+    ListView<String> lV_font_choices;
+    ListView<Double> lV_font_size;
+    TextField font_search;
+    TextField font_style_search;
+    TextField font_size_search;
+    Text font_sample;
+    int index;
+    ObservableList<String> font_styles;
+    
     
     @Override
     public void start(Stage primaryStage) {
@@ -68,8 +94,14 @@ public class Notepad extends Application {
         primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>(){
         @Override
         public void handle(WindowEvent w){
-            w.consume();
-            saveOnClose();
+            //error when closing new editor and changing the text area
+            //it needs to ask to save if they have changed the text area!!
+            if( (savedFile == null && textArea.getText().equals("")) || (applicationSettings != null && textArea.getText().equals(applicationSettings.getText()))){
+                primaryStage.close();
+            }else{
+                w.consume();
+                saveOnClose();
+            }
         }
         });
     }
@@ -82,6 +114,8 @@ public class Notepad extends Application {
             textArea = new TextArea();//creating a new text area names textArea
             textArea.setPromptText("Type here...");//adding the prompt text to the text area
             textArea.setFocusTraversable(false);
+            oldFont = textArea.getFont();
+            //applicationSettings.setText("");
             scene = new Scene(root, 700, 500);//setting the dimensions of the initial area
     }
     
@@ -231,8 +265,173 @@ public class Notepad extends Application {
         MenuItem item_wordwrap = new MenuItem("_Word Wrap");
         MenuItem item_font = new MenuItem("_Font...");
         menu_format.getItems().addAll(item_wordwrap, item_font);
+        
+        createFormatFont(item_font);
+        
         return menu_format;
     }
+    
+    public void createFormatFont(MenuItem item_font){
+        item_font.setOnAction(new EventHandler<ActionEvent>(){ 
+           @Override
+           public void handle(ActionEvent event){
+               fontDialog();
+           }
+        });
+    }
+    public void fontDialog(){
+        //create the dialog which returns fontResults and updates the styles list acording to family
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Font");
+        DialogPane dialogPane = dialog.getDialogPane();
+        Stage stage = (Stage) dialog.getDialogPane().getScene().getWindow();
+        stage.getIcons().add(new Image(getClass().getResourceAsStream("editor_icon.png"), 40, 40, true, true));
+        dialogPane.getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        createDialog(dialogPane);//add the list views to the dialog
+        dialog.setResultConverter((ButtonType button) -> {
+            if (button == ButtonType.OK) {
+                actionChangeFont(lV_font_styles.getSelectionModel().getSelectedItem(), lV_font_size.getSelectionModel().getSelectedItem());
+                index = lV_font_styles.getSelectionModel().getSelectedIndex();
+            }
+            return null;
+        });
+        lV_font_choices.getSelectionModel().selectedItemProperty().addListener(
+            new ChangeListener<String>() {
+                @Override
+                public void changed(ObservableValue<? extends String> ov, 
+                    String old_val, String new_val) {
+                        font_styles = FXCollections.observableArrayList(javafx.scene.text.Font.getFontNames(new_val));
+                        lV_font_styles.setItems(font_styles);
+                        lV_font_styles.getSelectionModel().select(0);
+                        lV_font_styles.scrollTo(0);
+                        stage.show();
+            }
+        });
+        lV_font_styles.getSelectionModel().selectedItemProperty().addListener(
+            new ChangeListener<String>() {
+                @Override
+                public void changed(ObservableValue<? extends String> ov, 
+                    String old_val, String new_val) {
+                        Font ft = new Font(new_val, 12);
+                        font_sample.setFont(ft);
+                        stage.show();
+            }
+        });
+        dialog.showAndWait();
+    }
+    public void createDialog(DialogPane dialogPane){
+        ObservableList<String> font_choices = FXCollections.observableArrayList(javafx.scene.text.Font.getFamilies());
+        lV_font_choices = new ListView<>(font_choices);
+        lV_font_choices.maxWidth(25);
+        lV_font_choices.getSelectionModel().select(font_choices.indexOf(oldFont.getFamily()));
+        lV_font_choices.getFocusModel().focus(font_choices.indexOf(oldFont.getFamily()));
+        lV_font_choices.scrollTo(font_choices.indexOf(oldFont.getFamily()));
+        
+        font_styles = FXCollections.observableArrayList(javafx.scene.text.Font.getFontNames(oldFont.getFamily()));
+        lV_font_styles = new ListView<>(font_styles);
+        lV_font_styles.getSelectionModel().select(index);
+        lV_font_styles.scrollTo(index);
+        
+        List<Double> range =  new ArrayList<Double>();
+        for(int i =1; i <500;i++){range.add((double)i);}
+        ObservableList<Double> font_size = FXCollections.observableArrayList(range);
+        lV_font_size = new ListView<>(font_size);
+        lV_font_size.getSelectionModel().select(font_size.indexOf(oldFont.getSize()));
+        lV_font_size.getFocusModel().focus(font_size.indexOf(oldFont.getSize()));
+        lV_font_size.scrollTo(font_size.indexOf(oldFont.getSize()));
+        
+        GridPane gp = createGridPane(lV_font_choices, lV_font_styles, lV_font_size);
+        //creating gridpane for the layout of the dialog pane
+        font_search.textProperty().addListener(((observable, oldValue, newValue) -> {
+            searchFontFamily(newValue.toLowerCase(), font_choices);
+            
+        }));
+        font_style_search.textProperty().addListener(((observable, oldValue, newValue) -> {
+            searchFontStyle(newValue.toLowerCase());
+            
+        }));
+        font_size_search.textProperty().addListener(((observable, oldValue, newValue) -> {
+            searchFontSize(newValue, font_size);
+            
+        }));
+        dialogPane.setContent(gp);
+    }
+    public void searchFontFamily(String newValue, ObservableList<String> font_choices){
+        boolean stop = false;
+            for(int i = 0; i < font_choices.size();i++){
+                if(font_choices.get(i).toLowerCase().contains(newValue)){
+                    for(int j = 0; j < newValue.length(); j++){
+                        if(font_choices.get(i).toLowerCase().charAt(j) == newValue.charAt(j)){
+                            lV_font_choices.getSelectionModel().select(i);
+                            lV_font_choices.getFocusModel().focus(i);
+                            lV_font_choices.scrollTo(i);
+                            stop = true;
+                        }
+                        break;
+                    }
+                    if(stop){break;}
+                }
+            }
+    }
+    public void searchFontStyle(String newValue){
+        boolean stop = false;
+            for(int i = 0; i < font_styles.size();i++){
+                if(font_styles.get(i).toLowerCase().contains(newValue)){
+                    for(int j = 0; j < newValue.length(); j++){
+                        if(font_styles.get(i).toLowerCase().charAt(j) == newValue.toLowerCase().charAt(j)){
+                            lV_font_styles.getSelectionModel().select(i);
+                            lV_font_styles.getFocusModel().focus(i);
+                            lV_font_styles.scrollTo(i);
+                            stop = true;
+                        }
+                        break;
+                    }
+                    if(stop){break;}
+                }
+            }
+    }
+    public void searchFontSize(String newValue, ObservableList<Double> font_size){
+        try{
+            double entry = Double.parseDouble(newValue);
+            lV_font_size.getSelectionModel().select(font_size.indexOf(entry));
+            lV_font_size.getFocusModel().focus(font_size.indexOf(entry));
+            lV_font_size.scrollTo(font_size.indexOf(entry));
+        }catch(NumberFormatException e){
+            
+        }
+    }
+    public GridPane createGridPane(ListView<String> lV_font_choices, ListView<String> lV_font_styles, ListView<Double> lV_font_size){
+        GridPane gp = new GridPane();
+        
+        font_search = new TextField();
+        VBox font = new VBox(new Text("Font:"), font_search);
+        gp.add(font, 0, 0, 1, 1);
+        gp.add(lV_font_choices, 0, 1, 1, 1);
+        
+        font_style_search = new TextField();
+        VBox font_style = new VBox(new Text("Font Style:"), font_style_search);
+        gp.add(font_style, 1, 0, 1, 1);
+        gp.add(lV_font_styles, 1, 1, 1, 1);
+        
+        font_size_search = new TextField();
+        VBox font_size = new VBox(new Text("Font size:"), font_size_search);
+        gp.add(font_size, 2, 0, 1, 1);
+        gp.add(lV_font_size, 2, 1, 1, 1);
+        
+        font_sample= new Text ("AaBbCcDd");
+        Font ft = new Font(oldFont.getName(),12);
+        font_sample.setFont(ft);
+        VBox sample = new VBox(font_sample);
+        sample.setAlignment(Pos.CENTER);
+        sample.setMinSize(25, 25);
+        sample.setStyle("-fx-border-color: black;");
+        gp.add(sample ,2 ,2 ,1 ,1);
+ 
+        gp.setHgap(15);
+        gp.setVgap(2);
+        return gp;
+    }
+
     
     public Menu createView_menu(){
         Menu menu_view = new Menu("_View");
@@ -420,9 +619,6 @@ public class Notepad extends Application {
         onCloseSaveYes(btn_yes);
         onCloseSaveNo(btn_no);
         onCloseSaveCancel(btn_cancel);
-        
-        
-        
     }
     public void onCloseSaveYes(Button btn_yes){
         btn_yes.setOnAction(new EventHandler<ActionEvent>() {
@@ -508,6 +704,11 @@ public class Notepad extends Application {
     }
     public void actionDelete(){
         textArea.replaceSelection("");
+    }
+    public void actionChangeFont(String style, double size){
+        Font newFont = new Font(style, size);
+        textArea.setFont(newFont);
+        oldFont = newFont;
     }
 
 }
