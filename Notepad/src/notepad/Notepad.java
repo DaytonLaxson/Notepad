@@ -54,6 +54,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import static javafx.application.Application.launch;
 
 public class Notepad extends Application {
 
@@ -93,6 +94,7 @@ public class Notepad extends Application {
         createToolBar();
         createEditor();
         createVbox();
+        addCSS(scene);
         TIC = (TextInputControl) textArea;
         actionStatusBox();
         root.setTop(vbox);
@@ -611,10 +613,13 @@ public class Notepad extends Application {
     public void saveOnClose(){
         secondaryStage = new Stage();
         Button btn_yes = new Button();
+        btn_yes.setStyle("-fx-background-color: #7ca7ef");
         btn_yes.setText("Yes");
         Button btn_no = new Button();
+        btn_no.setStyle("-fx-background-color: #7ca7ef");
         btn_no.setText("No");
         Button btn_cancel = new Button();
+        btn_cancel.setStyle("-fx-background-color: #7ca7ef");
         btn_cancel.setText("Cancel");
         btn_cancel.setMaxWidth(60);
         btn_no.setMaxWidth(60);
@@ -628,6 +633,7 @@ public class Notepad extends Application {
         rootClose.getChildren().add(btn_cancel);
         
         Scene sceneClose = new Scene(rootClose, 350, 100);
+        addCSS(sceneClose);
         secondaryStage.setTitle("Do you want to save?");
         secondaryStage.setScene(sceneClose);
         secondaryStage.show();
@@ -665,6 +671,11 @@ public class Notepad extends Application {
                 secondaryStage.close();
             }
         });
+    }
+    
+    public void addCSS(Scene scene){
+        scene.getStylesheets().add("button_styles.css");
+        
     }
     
     public void actionSave(){
