@@ -1,6 +1,7 @@
 package notepad;
 
 import com.google.gson.Gson;
+import javafx.scene.image.Image;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -11,15 +12,27 @@ import static javafx.application.Application.launch;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.Separator;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.ToolBar;
+import javafx.scene.control.Tooltip;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 
 public class Notepad extends Application {
 
@@ -29,35 +42,49 @@ public class Notepad extends Application {
     Scene scene;
     TextArea textArea;
     MenuBar menuBar;
-    //File filename = new File("data.json");
+    ToolBar toolBar;
+    VBox vbox;
+    Stage secondaryStage;
+    Clipboard clipboard = Clipboard.getSystemClipboard();
+    ClipboardContent content = new ClipboardContent();
     BorderPane root = new BorderPane();
-    
     
     @Override
     public void start(Stage primaryStage) {
+        //add the text editor file name as the name as stage
+        //change the icon of the stage
         this.primaryStage = primaryStage;
         createMenuBar();//created the menu bar with corresponding drop down menues and the items
-        root.setTop(menuBar);
+        createToolBar();
         createEditor();
+        createVbox();
+        root.setTop(vbox);
         root.setCenter(textArea);
-        primaryStage.setTitle("Lab 7 editor 3");//title of the editor          
+        primaryStage.setTitle("Lab 11 editor 4");//title of the editor       
+        primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("editor_icon.png"), 40, 40, true, true));
         primaryStage.setScene(scene);
         primaryStage.show();//displaying it all
-        /*
+        
         primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>(){
         @Override
         public void handle(WindowEvent w){
-            saveState();
+            w.consume();
+            saveOnClose();
         }
         });
-        */
     }
-    /**
-     * @param args the command line arguments
-     */
+
     public static void main(String[] args) {
         launch(args);
     }
+    
+    public void createEditor(){
+            textArea = new TextArea();//creating a new text area names textArea
+            textArea.setPromptText("Type here...");//adding the prompt text to the text area
+            textArea.setFocusTraversable(false);
+            scene = new Scene(root, 700, 500);//setting the dimensions of the initial area
+    }
+    
     public void createMenuBar(){
         //creates each menu with methods that create the items per drop down menu
         menuBar = new MenuBar();
@@ -69,6 +96,7 @@ public class Notepad extends Application {
         
         menuBar.getMenus().addAll(File_menu, Edit_menu, Format_menu, View_menu, Help_menu);//adding each menu to the menuBAr
     }
+    
     public Menu createFile_menu(){
         Menu menu_file = new Menu("_File");
         MenuItem item_new = new MenuItem("_New");
@@ -84,74 +112,49 @@ public class Notepad extends Application {
         item_save.setAccelerator(KeyCombination.keyCombination("Ctrl+S"));
         item_print.setAccelerator(KeyCombination.keyCombination("Ctrl+P"));
         
+        fileSave(item_save);
+        fileOpen(item_open);
+        fileSaveAs(item_saveas);
+        fileExit(item_exit);
+  
+        menu_file.getItems().addAll(item_new, item_open, item_save, item_saveas,new SeparatorMenuItem(),item_print,
+        item_printsetup, new SeparatorMenuItem(), item_exit);
         
-        item_open.setOnAction(new EventHandler<ActionEvent>(){ 
-           @Override
-           public void handle(ActionEvent event){
-               FileChooser fileChooser = new FileChooser();
-               fileChooser.setTitle("Open");
-               File file = fileChooser.showOpenDialog(primaryStage);
-               savedFile = file;
-               if(file != null){
-                   openNew_file(file);
-               }
-           }
-        });
+        return menu_file;
+    } 
+    public void fileSave(MenuItem item_save){
         item_save.setOnAction(new EventHandler<ActionEvent>(){ 
            @Override
            public void handle(ActionEvent event){
-               if(savedFile != null){
-                   try{
-                        saveNew_File(textArea.getText(), savedFile);
-                    } catch(IOException e){
-                        System.out.println(e);
-                    }
-               }else{
-                    FileChooser fileChooser = new FileChooser();
-                    FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
-                    fileChooser.getExtensionFilters().add(extFilter);
-                    fileChooser.setTitle("Save As");
-                    File file = fileChooser.showSaveDialog(primaryStage);
-                    savedFile = file;
-                    try{
-                        if(file != null){
-                             saveNew_File(textArea.getText(), file);
-                         }
-                    } catch(IOException e){
-                        System.out.println(e);
-                    }
-               }
+               actionSave();
            }
         });
+    }
+    public void fileOpen(MenuItem item_open){
+        item_open.setOnAction(new EventHandler<ActionEvent>(){ 
+           @Override
+           public void handle(ActionEvent event){
+               actionOpen();
+           }
+        });
+    }
+    public void fileSaveAs(MenuItem item_saveas){
         item_saveas.setOnAction(new EventHandler<ActionEvent>(){ 
            @Override
            public void handle(ActionEvent event){
-               FileChooser fileChooser = new FileChooser();
-               FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
-               fileChooser.getExtensionFilters().add(extFilter);
-               fileChooser.setTitle("Save As");
-               File file = fileChooser.showSaveDialog(primaryStage);
-               try{
-                   if(file != null){
-                        saveNew_File(textArea.getText(), file);
-                    }
-               } catch(IOException e){
-                   System.out.println(e);
-               }
+               actionSaveAs();
            }
         });
+    }
+    public void fileExit(MenuItem item_exit){
         item_exit.setOnAction(new EventHandler<ActionEvent>(){
             @Override
             public void handle(ActionEvent event){
                 System.exit(0);
             }
         });
-        
-        menu_file.getItems().addAll(item_new, item_open, item_save, item_saveas,new SeparatorMenuItem(),item_print,
-        item_printsetup, new SeparatorMenuItem(), item_exit);
-        
-        return menu_file;
     }
+    
     public Menu createEdit_menu(){
        Menu menu_edit = new Menu("_Edit");
        MenuItem item_undo = new MenuItem("_Undo");
@@ -179,12 +182,50 @@ public class Notepad extends Application {
        item_selectall.setAccelerator(KeyCombination.keyCombination("Ctrl+A"));
        item_date.setAccelerator(KeyCombination.keyCombination("F5"));
        
+       createEditCut(item_cut);
+       createEditCopy(item_copy);
+       createEditPaste(item_paste);
+       createEditDelete(item_delete);
+       
        menu_edit.getItems().addAll(item_undo, new SeparatorMenuItem(), 
                item_cut, item_copy, item_paste, item_delete, new SeparatorMenuItem(),
                item_find, item_findnext, item_replace, item_goto, new SeparatorMenuItem(),
                item_selectall, item_date);
        return menu_edit;
     }
+    public void createEditCut(MenuItem item_cut){
+        item_cut.setOnAction(new EventHandler<ActionEvent>(){ 
+           @Override
+           public void handle(ActionEvent event){
+               actionCut();
+           }
+        });
+    }
+    public void createEditCopy(MenuItem item_copy){
+        item_copy.setOnAction(new EventHandler<ActionEvent>(){ 
+           @Override
+           public void handle(ActionEvent event){
+               actionCopy();
+           }
+        });
+    }
+    public void createEditPaste(MenuItem item_paste){
+        item_paste.setOnAction(new EventHandler<ActionEvent>(){ 
+           @Override
+           public void handle(ActionEvent event){
+                actionPaste();
+           }
+        });
+    }
+    public void createEditDelete(MenuItem item_delete){
+        item_delete.setOnAction(new EventHandler<ActionEvent>(){ 
+           @Override
+           public void handle(ActionEvent event){
+                actionDelete();
+           }
+        });
+    }
+    
     public Menu createFormat_menu(){
         Menu menu_format = new Menu("F_ormat");
         MenuItem item_wordwrap = new MenuItem("_Word Wrap");
@@ -192,12 +233,14 @@ public class Notepad extends Application {
         menu_format.getItems().addAll(item_wordwrap, item_font);
         return menu_format;
     }
+    
     public Menu createView_menu(){
         Menu menu_view = new Menu("_View");
         MenuItem item_status = new MenuItem("_Status Bar");
         menu_view.getItems().add(item_status);
         return menu_view;
     }
+    
     public Menu createHelp_menu(){
         Menu menu_help = new Menu("_Help");
         MenuItem item_help = new MenuItem("View _Help");
@@ -205,18 +248,118 @@ public class Notepad extends Application {
         menu_help.getItems().addAll(item_help, new SeparatorMenuItem(), item_about);
         return menu_help;
     }
-    public void createEditor(){
-         /*if(filename.exists()){
-            textArea = new TextArea();//creating a new text area names textArea
-            openFile();
-            textArea.setText(applicationSettings.getText());
-            scene = new Scene(root, applicationSettings.getWidth(), applicationSettings.getHeight());//setting the dimensions of the area
-        }else{*/
-            textArea = new TextArea();//creating a new text area names textArea
-            textArea.setPromptText("Type here...");//adding the prompt text to the text area
-            textArea.setFocusTraversable(false);
-            scene = new Scene(root, 700, 500);//setting the dimensions of the initial area
-        //}
+    
+    public void createToolBar(){
+        Button save = new Button();
+        save.setMaxSize(50, 50);
+        save.setTooltip(new Tooltip("Save"));
+        
+        Button open = new Button();
+        open.setMaxSize(50, 50);
+        open.setTooltip(new Tooltip("open"));
+        
+        Button cut = new Button();
+        cut.setMaxSize(50, 50);
+        cut.setTooltip(new Tooltip("cut"));
+        
+        Button copy = new Button();
+        copy.setMaxSize(50, 50);
+        copy.setTooltip(new Tooltip("copy"));
+        
+        Button paste = new Button();
+        paste.setMaxSize(50, 50);
+        paste.setTooltip(new Tooltip("paste"));
+        
+        saveButton(save);
+        openButton(open);
+        cutButton(cut);
+        copyButton(copy);
+        pasteButton(paste);
+        toolBar = new ToolBar(save, open, new Separator(), cut, copy, paste);
+    }
+    public void saveButton(Button save){
+        Image img_save = new Image(getClass().getResourceAsStream("save_icon.png"), 15, 15, true, true);
+        save.setGraphic(new ImageView(img_save));
+        shadowOnOff(save);
+        save.setOnAction(new EventHandler<ActionEvent>() {
+            
+            @Override
+            public void handle(ActionEvent event) {
+                actionSave();
+            }
+        });
+    }
+    public void openButton(Button open){
+        Image img_save = new Image(getClass().getResourceAsStream("open_icon.png"), 15, 15, true, true);
+        open.setGraphic(new ImageView(img_save));
+        shadowOnOff(open);
+        open.setOnAction(new EventHandler<ActionEvent>() {
+            
+            @Override
+            public void handle(ActionEvent event) {
+                actionOpen();
+            }
+        });
+    }
+    public void cutButton(Button cut){
+        Image img_save = new Image(getClass().getResourceAsStream("cut_icon.png"), 15, 15, true, true);
+        cut.setGraphic(new ImageView(img_save));
+        shadowOnOff(cut);
+        cut.setOnAction(new EventHandler<ActionEvent>() {
+            
+            @Override
+            public void handle(ActionEvent event) {
+                actionCut();
+            }
+        });
+    }
+    public void copyButton(Button copy){
+        Image img_save = new Image(getClass().getResourceAsStream("copy_icon.png"), 15, 15, true, true);
+        copy.setGraphic(new ImageView(img_save));
+        shadowOnOff(copy);
+        copy.setOnAction(new EventHandler<ActionEvent>() {
+            
+            @Override
+            public void handle(ActionEvent event) {
+                actionCopy();
+            }
+        });
+    }
+    public void pasteButton(Button paste){
+        Image img_save = new Image(getClass().getResourceAsStream("paste_icon.png"), 15, 15, true, true);
+        paste.setGraphic(new ImageView(img_save));
+        shadowOnOff(paste);
+        paste.setOnAction(new EventHandler<ActionEvent>() {
+        
+            @Override
+            public void handle(ActionEvent event) {
+                actionPaste();
+            }
+        });
+    } 
+    
+    public void shadowOnOff(Button but){
+        DropShadow shadow = new DropShadow();
+        //Adding the shadow when the mouse cursor is on
+        but.addEventHandler(MouseEvent.MOUSE_ENTERED, 
+            new EventHandler<MouseEvent>() {
+                @Override public void handle(MouseEvent e) {
+                    but.setEffect(shadow);
+                }
+        });
+        //Removing the shadow when the mouse cursor is off
+        but.addEventHandler(MouseEvent.MOUSE_EXITED, 
+            new EventHandler<MouseEvent>() {
+                @Override public void handle(MouseEvent e) {
+                    but.setEffect(null);
+                }
+        });
+    }
+    
+    public void createVbox(){
+        vbox = new VBox();
+        vbox.getChildren().add(menuBar);
+        vbox.getChildren().add(toolBar);
     }
     public void openNew_file(File file) {
         Gson gson = new Gson();
@@ -249,29 +392,122 @@ public class Notepad extends Application {
         writer.close();
         */
     }
-        /*
-    public void openFile(){
-        Gson gson = new Gson();
-        try(FileReader fr = new FileReader("Data.json")){
-            BufferedReader br = new BufferedReader(fr);
-            applicationSettings = gson.fromJson(br.readLine(), Settings.class);
+    
+    public void saveOnClose(){
+        secondaryStage = new Stage();
+        Button btn_yes = new Button();
+        btn_yes.setText("Yes");
+        Button btn_no = new Button();
+        btn_no.setText("No");
+        Button btn_cancel = new Button();
+        btn_cancel.setText("Cancel");
+        btn_cancel.setMaxWidth(60);
+        btn_no.setMaxWidth(60);
+        btn_yes.setMaxWidth(60);
+        
+        StackPane rootClose = new StackPane();
+        btn_yes.setTranslateX(-100);
+        btn_cancel.setTranslateX(100);
+        rootClose.getChildren().add(btn_yes);
+        rootClose.getChildren().add(btn_no);
+        rootClose.getChildren().add(btn_cancel);
+        
+        Scene sceneClose = new Scene(rootClose, 350, 100);
+        secondaryStage.setTitle("Do you want to save?");
+        secondaryStage.setScene(sceneClose);
+        secondaryStage.show();
+        
+        onCloseSaveYes(btn_yes);
+        onCloseSaveNo(btn_no);
+        onCloseSaveCancel(btn_cancel);
+        
+        
+        
+    }
+    public void onCloseSaveYes(Button btn_yes){
+        btn_yes.setOnAction(new EventHandler<ActionEvent>() {
+            
+            @Override
+            public void handle(ActionEvent event) {
+                actionSave();
+                secondaryStage.close();
+                primaryStage.close();
+            }
+        });
+    }
+    public void onCloseSaveNo(Button btn_no){
+        btn_no.setOnAction(new EventHandler<ActionEvent>() {
+            
+            @Override
+            public void handle(ActionEvent event) {
+                secondaryStage.close();
+                primaryStage.close();
+            }
+        });
+    }
+    public void onCloseSaveCancel(Button btn_cancel){
+        btn_cancel.setOnAction(new EventHandler<ActionEvent>() {
+            
+            @Override
+            public void handle(ActionEvent event) {
+                secondaryStage.close();
+            }
+        });
+    }
+    
+    public void actionSave(){
+        try{
+            if(savedFile != null){
+                saveNew_File(textArea.getText(), savedFile);
+            }else{
+                actionSaveAs();
+            }
         }catch(IOException e){
+                 System.out.println(e);
+             }
+    }
+    public void actionSaveAs(){
+        FileChooser fileChooser = new FileChooser();
+        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
+        fileChooser.getExtensionFilters().add(extFilter);
+        fileChooser.setTitle("Save As");
+        File file = fileChooser.showSaveDialog(primaryStage);
+        try{
+            if(file != null){
+                saveNew_File(textArea.getText(), file);
+                savedFile=file;
+             }
+        } catch(IOException e){
             System.out.println(e);
         }
     }
-
-    public void saveState(){
-        applicationSettings = new Settings();
-        applicationSettings.setHeight(scene.getHeight());
-        applicationSettings.setWidth(scene.getWidth());
-        applicationSettings.setText(textArea.getText());
-        Gson gson = new Gson();
-        String file = gson.toJson(applicationSettings);
-        try(FileWriter fw = new FileWriter(filename)){
-            fw.write(file);
-            fw.close();
-        }catch(IOException e){
-            System.out.println(e);
+    public void actionOpen(){
+        FileChooser fileChooser = new FileChooser();
+               fileChooser.setTitle("Open");
+               File file = fileChooser.showOpenDialog(primaryStage);
+               savedFile = file;
+               if(file != null){
+                   openNew_file(file);
+               }
+    }
+    public void actionCopy(){
+        content.putString(textArea.getSelectedText());
+        clipboard.setContent(content);
+    }
+    public void actionCut(){
+        content.putString(textArea.getSelectedText());
+        clipboard.setContent(content);
+        textArea.replaceSelection("");
+        //delete selction from textarea?
+    }
+    public void actionPaste(){
+        if (clipboard.hasString()) {
+            textArea.replaceSelection(clipboard.getString());
+            //replace selected text with string from clipbaord
         }
-    }*/
+    }
+    public void actionDelete(){
+        textArea.replaceSelection("");
+    }
+
 }
