@@ -31,6 +31,7 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
 import javafx.scene.effect.DropShadow;
@@ -48,6 +49,11 @@ import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class Notepad extends Application {
 
@@ -59,6 +65,7 @@ public class Notepad extends Application {
     MenuBar menuBar;
     ToolBar toolBar;
     VBox vbox;
+    VBox statusBox;
     Stage secondaryStage;
     Clipboard clipboard = Clipboard.getSystemClipboard();
     ClipboardContent content = new ClipboardContent();
@@ -71,8 +78,10 @@ public class Notepad extends Application {
     TextField font_style_search;
     TextField font_size_search;
     Text font_sample;
+    Text statusText;
     int index;
     ObservableList<String> font_styles;
+    TextInputControl TIC;
     
     
     @Override
@@ -84,12 +93,19 @@ public class Notepad extends Application {
         createToolBar();
         createEditor();
         createVbox();
+        TIC = (TextInputControl) textArea;
+        actionStatusBox();
         root.setTop(vbox);
         root.setCenter(textArea);
+        
         primaryStage.setTitle("Lab 11 editor 4");//title of the editor       
         primaryStage.getIcons().add(new Image(getClass().getResourceAsStream("editor_icon.png"), 40, 40, true, true));
         primaryStage.setScene(scene);
         primaryStage.show();//displaying it all
+        
+        TIC.caretPositionProperty().addListener((ob, old1, new1) -> {
+            actionStatusBox();
+        });
         
         primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>(){
         @Override
@@ -568,7 +584,7 @@ public class Notepad extends Application {
             textArea.setText(applicationSettings.getText());
             primaryStage.setHeight(applicationSettings.getHeight());
             primaryStage.setWidth(applicationSettings.getWidth());
-            
+            actionStatusBox();
         }catch(IOException e){
             System.out.println(e);
         }
@@ -672,6 +688,7 @@ public class Notepad extends Application {
             if(file != null){
                 saveNew_File(textArea.getText(), file);
                 savedFile=file;
+                actionStatusBox();
              }
         } catch(IOException e){
             System.out.println(e);
@@ -709,6 +726,33 @@ public class Notepad extends Application {
         Font newFont = new Font(style, size);
         textArea.setFont(newFont);
         oldFont = newFont;
+    }
+    public void actionStatusBox(){
+        DateTimeFormatter dateTimeFormatter1 = DateTimeFormatter
+				.ofPattern("yyyy/MM/dd HH:mm:ss z");
+        ZonedDateTime zonedDateTime = ZonedDateTime.now();
+        String formatter1 = dateTimeFormatter1.format(zonedDateTime);
+        
+        String statusfile;
+        if(savedFile != null){
+             statusfile = savedFile.getName();
+        }else{
+            statusfile = "";
+        }
+        
+        int caret = TIC.getCaretPosition();
+        String sel = TIC.getText(0, caret);
+        String linesArray[] = sel.split("\\n", -1);
+        int lineCount = linesArray.length;
+        String last = linesArray[linesArray.length-1];
+        int columnCount = last.length();
+        
+        statusBox = new VBox();
+        statusText = new Text("Line: "+lineCount + "  Column: " + columnCount + "    File Name: " + 
+                statusfile + "   Date and Time: " + formatter1);
+        statusBox.getChildren().add(statusText);
+        TIC.selectPositionCaret(caret);
+        root.setBottom(statusBox);
     }
 
 }
